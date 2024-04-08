@@ -57,8 +57,6 @@ normScale = StandardScaler()
 dataFile = 'ML_InpAsOf_2022_12_20_ICPMS_all.xlsx'
 trainData_whichSheet = 'Sheet_manSpearPrune(6)' #you need 
 
-#testData_whichSheet = 'Pl23_EBSDtextur'
-
 #testSheet = 'ML_test'
 randSeedVal = 1
 modelType = "theUshe_"
