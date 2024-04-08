@@ -63,7 +63,6 @@ colors = prop_cycle.by_key()['color']
 normScale = StandardScaler()
 dataFile = 'ML_InpAsOf_2022_12_20_ICPMS_all.xlsx'
 allData_whichSheet = 'Sheet1'
-#testData_whichSheet = 'Pl23'
 
 randSeedVal = 1
 modelType = "randFor Spearman-randSeedPerturb 2prune train xSc yUnsc"
@@ -164,82 +163,74 @@ iterCount = 0
 
 #%% (4) start sequence
 
-while ytest_pred_MAPE > 60: #truePositives <0.8: #
-    
-    
-    testSampleIDs = [103,46,34,54,3,106,67,61,43,56,27,72,53,51,40,26,6,38,13,21,57,45]#sample(list(range(numSamples_total)),numSamples_test)#[103,32,65,104,19,69,50,42,51,64,96,70,55,75,78,16,52,15,100,38,28,68] #
-    
+testSampleIDs = [103,46,34,54,3,106,67,61,43,56,27,72,53,51,40,26,6,38,13,21,57,45]#
 
-    
-    
-    df_train = df_total.drop(df_total.index[testSampleIDs])
-    df_test = df_total.loc[testSampleIDs]
-    df_train_scaled = df_total_scaled.drop(df_total.index[testSampleIDs])
-    df_test_scaled = df_total_scaled.loc[testSampleIDs]
+df_train = df_total.drop(df_total.index[testSampleIDs])
+df_test = df_total.loc[testSampleIDs]
+df_train_scaled = df_total_scaled.drop(df_total.index[testSampleIDs])
+df_test_scaled = df_total_scaled.loc[testSampleIDs]
 
-    ytrain = df_train[target_var] #target col name GDOES_saltConc_Fe_mols
-    ytest = df_test[target_var]
-    
-    Xtrain_scaled = df_train_scaled.drop(['PlateID', 
-                                     'Sample#',
-                                     targetVariableType+'Cr',
-                                     targetVariableType+'Fe',
-                                     targetVariableType+'Mn',
-                                     targetVariableType+'Ni',
-                                     targetVariableType+'total'],axis='columns')#
-    
-    Xtest_scaled = df_test_scaled.drop(['PlateID', 
-                                     'Sample#',
-                                     targetVariableType+'Cr',
-                                     targetVariableType+'Fe',
-                                     targetVariableType+'Mn',
-                                     targetVariableType+'Ni',
-                                     targetVariableType+'total'],axis='columns')#
-    
-    numSamples_train = df_train.shape[0]
-    
-    ytrain_exp = ytrain
-    Xtrain_unpruned_exp = Xtrain_scaled#randomness feature is always the 1st feature in the X-matrix
+ytrain = df_train[target_var] #target col name GDOES_saltConc_Fe_mols
+ytest = df_test[target_var]
 
-    """
-    (4b) Get List of Features for everyone. We assume the cols are exactly the same for X_train & X_test. 
-    that's why you format the cols. first using the mastercopy then split only on rows. 
-    """
-    X_len = len(Xtrain_unpruned_exp)#number of samples
-    X_names_unpruned = Xtrain_unpruned_exp.columns #Xnames
-    X_names_unpruned_arr = np.transpose(np.array([X_names_unpruned]))
-    numFeats_unpruned = np.size(X_names_unpruned_arr)
-    
-    model_randFor = RandomForestRegressor(n_estimators=1000, random_state = 1) #initialize hyperparams for model_randfor
-    unpruned_train_Rsq, unpruned_train_Rsq_xval, unpruned_train_y_fit,unpruned_train_RMSE_fit,unpruned_train_uncert_down_y_predict_np, unpruned_train_uncert_up_y_predict_np, unpruned_train_uncertMargin_y_pred, unpruned_train_yfit_xvalPredict,unpruned_train_RMSE_xval,unpruned_train_yfit_percPredErrs,unpruned_train_yfit_xvalMAPE,unpruned_train_yfit_xvalMAPE_stdev,unpruned_train_featImpts=MLtrainsetMetrics(model_randFor,Xtrain_unpruned_exp,ytrain_exp)
-    
-    numSamples_test = df_test.shape[0]
-    ytest_exp = ytest
-    Xtest_exp = Xtest_scaled
+Xtrain_scaled = df_train_scaled.drop(['PlateID', 
+			     'Sample#',
+			     targetVariableType+'Cr',
+			     targetVariableType+'Fe',
+			     targetVariableType+'Mn',
+			     targetVariableType+'Ni',
+			     targetVariableType+'total'],axis='columns')#
 
-    Rsq_test, y_test_predict, ytest_percPredErrs, ytest_pred_MAPE, ytest_pred_MAPE_stdev =MLtestsetMetrics(model_randFor,Xtrain_unpruned_exp,ytrain_exp, Xtest_scaled,ytest_exp)
-    expectedGoodCorrSampleIDs = np.where(y_test_predict<SS316CorrCriteria)
-    df_expectedGoodCorrSamples = df_test.iloc[expectedGoodCorrSampleIDs]
-    ytest_goodCorr_exp = df_expectedGoodCorrSamples[target_var]
-    ytest_goodCorr_pred = y_test_predict[expectedGoodCorrSampleIDs]
-    numSamples_test_selected = df_expectedGoodCorrSamples.shape[0]
-        
-    df_expectedBadCorrSamples = df_test.drop(df_test.index[expectedGoodCorrSampleIDs])
-    ytest_badCorr_exp = df_expectedBadCorrSamples[target_var]
-    ytest_pred_df = pd.DataFrame(y_test_predict)
-    ytest_badCorr_pred = ytest_pred_df.drop(ytest_pred_df.index[expectedGoodCorrSampleIDs])
-    
-    ytest_goodCorr_exp_arr = np.array(ytest_goodCorr_exp)
-    ytestGoodCorr_absPredErrs = abs(ytest_goodCorr_pred - ytest_goodCorr_exp_arr)
-    ytest_goodCorr_percPredErrs = np.divide(ytestGoodCorr_absPredErrs,abs(ytest_goodCorr_exp_arr))*100 #y prediction errors, units [%]
-    ytest_goodCorr_MEANpercErr = ytest_percPredErrs.mean()
-    ytest_goodCorr_STDEVpercErr = ytest_percPredErrs.std()
-    print('overall test MAPE = ' + str(round(ytest_pred_MAPE,1))+'%')
-    iterCount = iterCount+1
-    #print('good corr MAPE = ' + str(round(ytest_goodCorr_MEANpercErr,1))+'%' + "+/-" + str(round(ytest_goodCorr_STDEVpercErr,0)) + " %" )
+Xtest_scaled = df_test_scaled.drop(['PlateID', 
+			     'Sample#',
+			     targetVariableType+'Cr',
+			     targetVariableType+'Fe',
+			     targetVariableType+'Mn',
+			     targetVariableType+'Ni',
+			     targetVariableType+'total'],axis='columns')#
 
+numSamples_train = df_train.shape[0]
 
-print('iteration ended @: #' + str(iterCount))
+ytrain_exp = ytrain
+Xtrain_unpruned_exp = Xtrain_scaled#randomness feature is always the 1st feature in the X-matrix
+
+"""
+(4b) Get List of Features for everyone. We assume the cols are exactly the same for X_train & X_test. 
+that's why you format the cols. first using the mastercopy then split only on rows. 
+"""
+X_len = len(Xtrain_unpruned_exp)#number of samples
+X_names_unpruned = Xtrain_unpruned_exp.columns #Xnames
+X_names_unpruned_arr = np.transpose(np.array([X_names_unpruned]))
+numFeats_unpruned = np.size(X_names_unpruned_arr)
+
+model_randFor = RandomForestRegressor(n_estimators=1000, random_state = 1) #initialize hyperparams for model_randfor
+unpruned_train_Rsq, unpruned_train_Rsq_xval, unpruned_train_y_fit,unpruned_train_RMSE_fit,unpruned_train_uncert_down_y_predict_np, unpruned_train_uncert_up_y_predict_np, unpruned_train_uncertMargin_y_pred, unpruned_train_yfit_xvalPredict,unpruned_train_RMSE_xval,unpruned_train_yfit_percPredErrs,unpruned_train_yfit_xvalMAPE,unpruned_train_yfit_xvalMAPE_stdev,unpruned_train_featImpts=MLtrainsetMetrics(model_randFor,Xtrain_unpruned_exp,ytrain_exp)
+
+numSamples_test = df_test.shape[0]
+ytest_exp = ytest
+Xtest_exp = Xtest_scaled
+
+Rsq_test, y_test_predict, ytest_percPredErrs, ytest_pred_MAPE, ytest_pred_MAPE_stdev =MLtestsetMetrics(model_randFor,Xtrain_unpruned_exp,ytrain_exp, Xtest_scaled,ytest_exp)
+expectedGoodCorrSampleIDs = np.where(y_test_predict<SS316CorrCriteria)
+df_expectedGoodCorrSamples = df_test.iloc[expectedGoodCorrSampleIDs]
+ytest_goodCorr_exp = df_expectedGoodCorrSamples[target_var]
+ytest_goodCorr_pred = y_test_predict[expectedGoodCorrSampleIDs]
+numSamples_test_selected = df_expectedGoodCorrSamples.shape[0]
+
+df_expectedBadCorrSamples = df_test.drop(df_test.index[expectedGoodCorrSampleIDs])
+ytest_badCorr_exp = df_expectedBadCorrSamples[target_var]
+ytest_pred_df = pd.DataFrame(y_test_predict)
+ytest_badCorr_pred = ytest_pred_df.drop(ytest_pred_df.index[expectedGoodCorrSampleIDs])
+
+ytest_goodCorr_exp_arr = np.array(ytest_goodCorr_exp)
+ytestGoodCorr_absPredErrs = abs(ytest_goodCorr_pred - ytest_goodCorr_exp_arr)
+ytest_goodCorr_percPredErrs = np.divide(ytestGoodCorr_absPredErrs,abs(ytest_goodCorr_exp_arr))*100 #y prediction errors, units [%]
+ytest_goodCorr_MEANpercErr = ytest_percPredErrs.mean()
+ytest_goodCorr_STDEVpercErr = ytest_percPredErrs.std()
+print('overall test MAPE = ' + str(round(ytest_pred_MAPE,1))+'%')
+
+#print('good corr MAPE = ' + str(round(ytest_goodCorr_MEANpercErr,1))+'%' + "+/-" + str(round(ytest_goodCorr_STDEVpercErr,0)) + " %" )
+
 #%%  (5) sorting sampels into confusion matrix
 """
 (5) Confusion Matrix
